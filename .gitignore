@@ -1,0 +1,15 @@
+# Результаты компиляции
+build/
+*.exe
+*.o
+*.obj
+a.out
+
+# Документация, сгенерированная Doxygen (собирается командой: doxygen Doxyfile)
+docs/
+
+# Служебные файлы редакторов и IDE
+.vscode/
+.idea/
+*.user
+*.swp
