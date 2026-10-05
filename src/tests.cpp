@@ -3,14 +3,16 @@
  * @brief Реализация тестов иерархии устройств умного дома.
  * @author Vareshka86
  * @date 2026-10-06
- * @version 0.2
+ * @version 0.3
  */
 
 #include "tests.h"
 #include "format.h"
+#include "ISensor.h"
 #include "LightBulb.h"
 #include "PoweredDevice.h"
 #include "SmartDevice.h"
+#include "SmartOutlet.h"
 #include "Thermostat.h"
 
 #include <cmath>
@@ -269,6 +271,21 @@ void testInvalidArguments()
     report("setTemperature(40) — исключение, температура осталась 21 °C",
            throwsInvalidArgument([&office] { office.setTemperature(40); }) && office.getTemperature() == 21);
 
+    std::cout << "\nSmartOutlet(\"Розетка\", 3500.0, 4000.0, 230.0), нагрузка -1 и напряжение 170 и 270 В\n";
+    report("нагрузка больше номинальной и меньше 0, напряжение 170 и 270 В — исключение",
+           throwsInvalidArgument([] { SmartOutlet o("Розетка", 3500.0, 4000.0, 230.0); }) &&
+               throwsInvalidArgument([] { SmartOutlet o("Розетка", 3500.0, -1.0, 230.0); }) &&
+               throwsInvalidArgument([] { SmartOutlet o("Розетка", 3500.0, 100.0, 170.0); }) &&
+               throwsInvalidArgument([] { SmartOutlet o("Розетка", 3500.0, 100.0, 270.0); }));
+
+    SmartOutlet outlet("Тостер", 2000.0, 800.0, 230.0);
+    std::cout << "SmartOutlet outlet(\"Тостер\", 2000.0, 800.0, 230.0);\n"
+              << "outlet.setLoad(2500.0);  outlet.setVoltage(300.0);\n";
+    report("setLoad(2500) и setVoltage(300) — исключение, нагрузка и напряжение прежние",
+           throwsInvalidArgument([&outlet] { outlet.setLoad(2500.0); }) &&
+               throwsInvalidArgument([&outlet] { outlet.setVoltage(300.0); }) &&
+               near(outlet.getLoad(), 800.0) && near(outlet.getCurrentVoltage(), 230.0));
+
     const double clockBefore = PoweredDevice::getClockHours();
     std::cout << "PoweredDevice::advanceClock(0.0) и advanceClock(-1.0)\n";
     report("сдвиг времени на 0 и назад — исключение, время прежнее",
@@ -377,6 +394,94 @@ void testDeviceArray()
            SmartDevice::getExistingCount() == countBefore);
 }
 
+void testMultipleInheritance()
+{
+    printSection("Тест 7. Множественное наследование: розетка с датчиком");
+    const int countBefore = SmartDevice::getExistingCount();
+    const double totalBefore = PoweredDevice::getTotalEnergyConsumed();
+
+    SmartOutlet kettle("Чайник", 3500.0, 2000.0, 230.0);
+    SmartDevice* device = &kettle;   // розетка как умное устройство
+    PoweredDevice& powered = kettle; // как устройство с питанием
+    ISensor& sensor = kettle;        // как датчик - второй базовый класс
+    std::cout << "SmartOutlet kettle(\"Чайник\", 3500.0, 2000.0, 230.0);\n"
+              << "SmartDevice* device = &kettle;\n"
+              << "PoweredDevice& powered = kettle;\n"
+              << "ISensor& sensor = kettle;\n"
+              << "device->turnOn();\n";
+    device->turnOn();
+    std::cout << "device->getStatus():\n  " << device->getStatus() << '\n';
+    report("через SmartDevice* вызвана getStatus() розетки", device->getStatus().find("Розетка «Чайник»") == 0);
+    report("powered.getPowerUsage(): розетка переопределила её — мощность нагрузки 2000 Вт",
+           near(powered.getPowerUsage(), 2000.0));
+    report("sensor.getCurrentVoltage() через ISensor& — 230 В", near(sensor.getCurrentVoltage(), 230.0));
+    report("ток: 2000 Вт / 230 В = 8.70 А", formatNumber(kettle.getCurrentAmperage(), 2) == "8.70");
+
+    advance(1.0);
+    std::cout << "kettle.setLoad(500.0);   // подключили прибор меньшей мощности\n";
+    kettle.setLoad(500.0);
+    advance(2.0);
+    std::cout << "device->turnOff();\n";
+    device->turnOff();
+    std::cout << "  " << kettle.getStatus() << '\n';
+    report("2000 Вт × 1 ч + 500 Вт × 2 ч = 3.000 кВт·ч засчитано розетке и общему счётчику",
+           near(kettle.getEnergyConsumed(), 3.0) &&
+               near(PoweredDevice::getTotalEnergyConsumed() - totalBefore, 3.0));
+
+    std::cout << "kettle.setVoltage(215.0);   // розетка выключена, датчик работает\n";
+    kettle.setVoltage(215.0);
+    report("выключенная розетка: мощность 0, датчик показывает 215 В",
+           near(kettle.getPowerUsage(), 0.0) && near(sensor.getCurrentVoltage(), 215.0));
+
+    // Массив устройств: датчики среди них находим через dynamic_cast
+    const int DEVICE_COUNT = 3;
+    SmartDevice* devices[DEVICE_COUNT] = {
+        new LightBulb("Гостиная", 100.0, 100, "белый"),
+        new SmartOutlet("Обогреватель", 3500.0, 1500.0, 228.0),
+        new Thermostat("Детская", 1200.0, 23, Thermostat::Mode::Eco)};
+    std::cout << "\nSmartDevice* devices[3] = {лампа «Гостиная», розетка «Обогреватель», термостат «Детская»};\n"
+              << "Датчики среди устройств - dynamic_cast<const ISensor*>(device):\n";
+    int sensorCount = 0;
+    for (const SmartDevice* item : devices)
+    {
+        const ISensor* itemSensor = dynamic_cast<const ISensor*>(item); // nullptr, если объект не датчик
+        if (itemSensor != nullptr)
+        {
+            ++sensorCount;
+            std::cout << "  " << item->getName() << ": датчик, напряжение "
+                      << formatNumber(itemSensor->getCurrentVoltage(), 1) << " В\n";
+        }
+        else
+        {
+            std::cout << "  " << item->getName() << ": не датчик\n";
+        }
+    }
+    report("датчик среди трёх устройств один — розетка, 228 В", sensorCount == 1);
+
+    for (SmartDevice*& item : devices)
+    {
+        delete item;
+        item = nullptr;
+    }
+
+    // Удаление через указатель на второй базовый класс
+    SmartOutlet* washer = new SmartOutlet("Стиральная машина", 2500.0, 2000.0, 230.0);
+    washer->turnOn();
+    std::cout << "\nSmartOutlet* washer = new SmartOutlet(\"Стиральная машина\", 2500.0, 2000.0, 230.0);\n"
+              << "washer->turnOn();\n";
+    advance(0.5);
+    const double totalBeforeDelete = PoweredDevice::getTotalEnergyConsumed();
+    ISensor* washerSensor = washer;
+    std::cout << "ISensor* washerSensor = washer;\ndelete washerSensor;   // розетка включена\n";
+    delete washerSensor;
+    washerSensor = nullptr;
+    washer = nullptr;
+    report("delete через ISensor*: вызвался деструктор розетки, засчитано 2000 Вт × 0.5 ч = 1.000 кВт·ч",
+           near(PoweredDevice::getTotalEnergyConsumed() - totalBeforeDelete, 1.0));
+    report("все временные устройства удалены (осталась только розетка «Чайник»)",
+           SmartDevice::getExistingCount() == countBefore + 1);
+}
+
 bool runAllTests()
 {
     testCreation();
@@ -385,6 +490,7 @@ bool runAllTests()
     testInvalidArguments();
     testVirtualDestructor();
     testDeviceArray();
+    testMultipleInheritance();
 
     printSection("Итог");
     std::cout << "Проверок пройдено: " << g_checksPassed << " из " << g_checksTotal << '\n'
