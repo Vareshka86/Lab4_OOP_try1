@@ -1,5 +1,5 @@
 @startuml
-title Диаграмма классов: устройства умного дома (вариант 5), версия v0.1
+title Диаграмма классов: устройства умного дома (вариант 5), версия v0.2
 skinparam classAttributeIconSize 0
 hide empty members
 
@@ -54,8 +54,32 @@ class LightBulb {
   + setColor(color : std::string) : void
 }
 
+class Thermostat {
+  - temperature_ : int
+  - mode_ : Mode
+  --
+  + {static} MIN_TEMPERATURE : int = 5
+  + {static} MAX_TEMPERATURE : int = 35
+  + Thermostat(name : std::string, power : double, temperature : int, mode : Mode)
+  + ~Thermostat()
+  + getStatus() : std::string
+  + getTemperature() : int
+  + getMode() : Mode
+  + setTemperature(temperature : int) : void
+  + setMode(mode : Mode) : void
+  + {static} modeName(mode : Mode) : std::string
+}
+
+enum "Thermostat::Mode" as Mode {
+  Heating
+  Cooling
+  Eco
+}
+
 SmartDevice <|-- PoweredDevice
 PoweredDevice <|-- LightBulb
+PoweredDevice <|-- Thermostat
+Thermostat +-- Mode
 
 note right of SmartDevice
   Уровень 1: абстрактный базовый класс.
@@ -76,9 +100,11 @@ note right of LightBulb
   номинальная мощность x яркость / 100.
 end note
 
-note bottom of LightBulb
-  Следующие части: Thermostat (v0.2),
-  ISensor и SmartOutlet - множественное
-  наследование (v0.3), копирование (v1.0).
+note bottom of Thermostat
+  Уровень 3: конкретный класс.
+  getPowerUsage не переопределена -
+  работает реализация по умолчанию.
 end note
+
+note "Следующие части: ISensor и SmartOutlet -\nмножественное наследование (v0.3),\nкопирование (v1.0)." as NextParts
 @enduml
