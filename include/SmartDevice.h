@@ -2,7 +2,7 @@
  * @file SmartDevice.h
  * @brief Класс SmartDevice — абстрактное устройство умного дома (вершина иерархии).
  * @details Иерархия варианта 5: SmartDevice → PoweredDevice → конкретные
- * устройства (LightBulb, далее Thermostat и SmartOutlet). Описание решения —
+ * устройства (LightBulb, Thermostat, далее SmartOutlet). Описание решения —
  * на странице @ref part1.
  * @author Vareshka86
  * @date 2026-10-05
