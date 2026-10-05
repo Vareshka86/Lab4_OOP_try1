@@ -2,8 +2,8 @@
  * @file tests.cpp
  * @brief Реализация тестов иерархии устройств умного дома.
  * @author Vareshka86
- * @date 2026-10-05
- * @version 0.1
+ * @date 2026-10-06
+ * @version 0.2
  */
 
 #include "tests.h"
@@ -11,6 +11,7 @@
 #include "LightBulb.h"
 #include "PoweredDevice.h"
 #include "SmartDevice.h"
+#include "Thermostat.h"
 
 #include <cmath>
 #include <iostream>
@@ -113,6 +114,25 @@ void testCreation()
            !kitchen.isOn() && near(kitchen.getPowerUsage(), 0.0) && near(kitchen.getEnergyConsumed(), 0.0));
     report("SmartDevice::getExistingCount() вырос на 1",
            SmartDevice::getExistingCount() == countBefore + 1);
+
+    std::cout << "\nThermostat bedroom(\"Спальня\", 1500.0, 22, Thermostat::Mode::Heating);\n";
+    Thermostat bedroom("Спальня", 1500.0, 22, Thermostat::Mode::Heating);
+    std::cout << "  " << bedroom.getStatus() << '\n';
+    report("термостат: имя, мощность, температура и режим записаны",
+           bedroom.getName() == "Спальня" && near(bedroom.getPowerConsumption(), 1500.0) &&
+               bedroom.getTemperature() == 22 && bedroom.getMode() == Thermostat::Mode::Heating);
+    report("новый термостат выключен и ничего не тратит",
+           !bedroom.isOn() && near(bedroom.getPowerUsage(), 0.0));
+
+    std::cout << "bedroom.setTemperature(18);  bedroom.setMode(Thermostat::Mode::Eco);\n";
+    bedroom.setTemperature(18);
+    bedroom.setMode(Thermostat::Mode::Eco);
+    std::cout << "  " << bedroom.getStatus() << '\n';
+    report("температура и режим изменены; Thermostat::modeName(Mode::Eco) = «эко»",
+           bedroom.getTemperature() == 18 && bedroom.getMode() == Thermostat::Mode::Eco &&
+               Thermostat::modeName(Thermostat::Mode::Eco) == "эко");
+    report("устройств стало на 2 больше (лампа и термостат)",
+           SmartDevice::getExistingCount() == countBefore + 2);
 }
 
 void testPolymorphism()
@@ -138,6 +158,21 @@ void testPolymorphism()
     report("повторный turnOn() возвращает false — лампа уже включена", !device->turnOn());
     report("turnOff() через указатель на SmartDevice выключил лампу", device->turnOff() && !hall.isOn());
     report("повторный turnOff() возвращает false", !device->turnOff());
+
+    Thermostat bedroom("Спальня", 1500.0, 22, Thermostat::Mode::Heating);
+    device = &bedroom;
+    PoweredDevice& heater = bedroom;
+    std::cout << "\nThermostat bedroom(\"Спальня\", 1500.0, 22, Thermostat::Mode::Heating);\n"
+              << "device = &bedroom;\n"
+              << "PoweredDevice& heater = bedroom;\n"
+              << "device->turnOn();\n";
+    device->turnOn();
+    std::cout << "device->getStatus():\n  " << device->getStatus() << '\n';
+    report("тот же указатель device теперь вызвал getStatus() термостата",
+           device->getStatus().find("Термостат «Спальня»") == 0);
+    report("heater.getPowerUsage(): термостат не переопределяет её — реализация по умолчанию, все 1500 Вт",
+           near(heater.getPowerUsage(), 1500.0));
+    device->turnOff();
 }
 
 void testEnergyAccounting()
@@ -222,6 +257,18 @@ void testInvalidArguments()
     report("setColor(\"\") — исключение, цвет прежний",
            throwsInvalidArgument([&lamp] { lamp.setColor(""); }) && lamp.getColor() == "жёлтый");
 
+    std::cout << "\nThermostat(\"Термостат\", 1000.0, 4, …) и температура 36\n";
+    report("температура 4 °C и 36 °C — исключение",
+           throwsInvalidArgument([] { Thermostat t("Термостат", 1000.0, 4, Thermostat::Mode::Heating); }) &&
+               throwsInvalidArgument([] { Thermostat t("Термостат", 1000.0, 36, Thermostat::Mode::Cooling); }));
+    report("после неудачных попыток счётчик устройств не изменился (одна лампа «Ночник»)",
+           SmartDevice::getExistingCount() == countBefore + 1);
+
+    Thermostat office("Кабинет", 1000.0, 21, Thermostat::Mode::Eco);
+    std::cout << "Thermostat office(\"Кабинет\", 1000.0, 21, Thermostat::Mode::Eco);\noffice.setTemperature(40);\n";
+    report("setTemperature(40) — исключение, температура осталась 21 °C",
+           throwsInvalidArgument([&office] { office.setTemperature(40); }) && office.getTemperature() == 21);
+
     const double clockBefore = PoweredDevice::getClockHours();
     std::cout << "PoweredDevice::advanceClock(0.0) и advanceClock(-1.0)\n";
     report("сдвиг времени на 0 и назад — исключение, время прежнее",
@@ -253,6 +300,83 @@ void testVirtualDestructor()
            SmartDevice::getExistingCount() == countBefore);
 }
 
+void testDeviceArray()
+{
+    printSection("Тест 6. Массив устройств через указатели на базовый класс");
+    const int countBefore = SmartDevice::getExistingCount();
+    const double totalBefore = PoweredDevice::getTotalEnergyConsumed();
+
+    // Массив указателей на абстрактный SmartDevice: в нём лежат объекты разных
+    // классов. Параметры заведомо верные, поэтому конструкторы исключений не бросят.
+    const int DEVICE_COUNT = 4;
+    SmartDevice* devices[DEVICE_COUNT] = {
+        new LightBulb("Кухня", 60.0, 100, "тёплый белый"),
+        new Thermostat("Спальня", 1500.0, 22, Thermostat::Mode::Heating),
+        new LightBulb("Коридор", 40.0, 50, "белый"),
+        new Thermostat("Кабинет", 1000.0, 24, Thermostat::Mode::Cooling)};
+
+    std::cout << "SmartDevice* devices[4] = {\n"
+              << "    new LightBulb(\"Кухня\", 60.0, 100, \"тёплый белый\"),\n"
+              << "    new Thermostat(\"Спальня\", 1500.0, 22, Thermostat::Mode::Heating),\n"
+              << "    new LightBulb(\"Коридор\", 40.0, 50, \"белый\"),\n"
+              << "    new Thermostat(\"Кабинет\", 1000.0, 24, Thermostat::Mode::Cooling)};\n";
+    report("создано 4 устройства", SmartDevice::getExistingCount() == countBefore + 4);
+
+    std::cout << "\nfor (SmartDevice* device : devices) device->turnOn();\n";
+    bool allTurnedOn = true;
+    for (SmartDevice* device : devices)
+    {
+        allTurnedOn = device->turnOn() && allTurnedOn;
+    }
+    int onCount = 0;
+    for (const SmartDevice* device : devices)
+    {
+        if (device->isOn())
+        {
+            ++onCount;
+        }
+    }
+    report("включены все 4 устройства", allTurnedOn && onCount == DEVICE_COUNT);
+
+    advance(2.0);
+
+    std::cout << "for (SmartDevice* device : devices) device->turnOff();\n";
+    for (SmartDevice* device : devices)
+    {
+        device->turnOff();
+    }
+    std::cout << "Статистика:\n";
+    for (const SmartDevice* device : devices)
+    {
+        std::cout << "  " << device->getStatus() << '\n'; // версия getStatus() - по типу объекта
+    }
+
+    onCount = 0;
+    for (const SmartDevice* device : devices)
+    {
+        if (device->isOn())
+        {
+            ++onCount;
+        }
+    }
+    report("после выключения ни одно устройство не включено", onCount == 0);
+
+    // Кухня 60 Вт, Спальня 1500 Вт, Коридор 40 Вт × 50 % = 20 Вт, Кабинет 1000 Вт;
+    // (60 + 1500 + 20 + 1000) Вт × 2 ч / 1000 = 5.160 кВт·ч
+    const double added = PoweredDevice::getTotalEnergyConsumed() - totalBefore;
+    std::cout << "Общая энергия выросла на " << formatNumber(added, 3) << " кВт·ч\n";
+    report("общий счётчик: (60 + 1500 + 20 + 1000) Вт × 2 ч = 5.160 кВт·ч", near(added, 5.16));
+
+    std::cout << "\nfor (SmartDevice*& device : devices) { delete device; device = nullptr; }\n";
+    for (SmartDevice*& device : devices)
+    {
+        delete device; // виртуальный деструктор: удаляется весь объект
+        device = nullptr;
+    }
+    report("все устройства удалены: счётчик устройств вернулся",
+           SmartDevice::getExistingCount() == countBefore);
+}
+
 bool runAllTests()
 {
     testCreation();
@@ -260,6 +384,7 @@ bool runAllTests()
     testEnergyAccounting();
     testInvalidArguments();
     testVirtualDestructor();
+    testDeviceArray();
 
     printSection("Итог");
     std::cout << "Проверок пройдено: " << g_checksPassed << " из " << g_checksTotal << '\n'
