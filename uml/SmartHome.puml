@@ -1,0 +1,84 @@
+@startuml
+title Диаграмма классов: устройства умного дома (вариант 5), версия v0.1
+skinparam classAttributeIconSize 0
+hide empty members
+
+abstract class SmartDevice {
+  - name_ : std::string
+  - isOn_ : bool
+  - {static} existingCount_ : int
+  --
+  # SmartDevice(name : std::string)
+  + ~SmartDevice() {virtual}
+  + {abstract} turnOn() : bool
+  + {abstract} turnOff() : bool
+  + {abstract} getStatus() : std::string
+  + getName() : std::string
+  + isOn() : bool
+  + {static} getExistingCount() : int
+  # setOn(on : bool) : void
+}
+
+abstract class PoweredDevice {
+  - powerConsumption_ : double
+  - energyKWh_ : double
+  - meterStartHours_ : double
+  - {static} totalEnergyKWh_ : double
+  - {static} clockHours_ : double
+  --
+  # PoweredDevice(name : std::string, powerConsumption : double)
+  + turnOn() : bool
+  + turnOff() : bool
+  + getPowerUsage() : double {virtual}
+  + getPowerConsumption() : double
+  + getEnergyConsumed() : double
+  + {static} getTotalEnergyConsumed() : double
+  + {static} getClockHours() : double
+  + {static} advanceClock(hours : double) : void
+  # updateMeter() : void
+}
+
+class LightBulb {
+  - brightness_ : int
+  - color_ : std::string
+  --
+  + {static} MIN_BRIGHTNESS : int = 1
+  + {static} MAX_BRIGHTNESS : int = 100
+  + LightBulb(name : std::string, power : double, brightness : int, color : std::string)
+  + ~LightBulb()
+  + getPowerUsage() : double
+  + getStatus() : std::string
+  + getBrightness() : int
+  + getColor() : std::string
+  + setBrightness(brightness : int) : void
+  + setColor(color : std::string) : void
+}
+
+SmartDevice <|-- PoweredDevice
+PoweredDevice <|-- LightBulb
+
+note right of SmartDevice
+  Уровень 1: абстрактный базовый класс.
+  turnOn, turnOff, getStatus - чисто виртуальные.
+end note
+
+note right of PoweredDevice
+  Уровень 2: промежуточный, тоже абстрактный
+  (getStatus по-прежнему чисто виртуальная).
+  getPowerUsage - виртуальная с реализацией
+  по умолчанию: включено -> номинальная мощность.
+  Энергия: Вт x часы / 1000 = кВт·ч.
+end note
+
+note right of LightBulb
+  Уровень 3: конкретный класс.
+  getPowerUsage переопределена:
+  номинальная мощность x яркость / 100.
+end note
+
+note bottom of LightBulb
+  Следующие части: Thermostat (v0.2),
+  ISensor и SmartOutlet - множественное
+  наследование (v0.3), копирование (v1.0).
+end note
+@enduml
