@@ -1,5 +1,5 @@
 @startuml
-title Диаграмма классов: устройства умного дома (вариант 5), версия v0.2
+title Диаграмма классов: устройства умного дома (вариант 5), версия v0.3
 skinparam classAttributeIconSize 0
 hide empty members
 
@@ -76,9 +76,33 @@ enum "Thermostat::Mode" as Mode {
   Eco
 }
 
+interface ISensor {
+  + ~ISensor() {virtual}
+  + {abstract} getCurrentVoltage() : double
+}
+
+class SmartOutlet {
+  - load_ : double
+  - voltage_ : double
+  --
+  + {static} MIN_VOLTAGE : int = 180
+  + {static} MAX_VOLTAGE : int = 260
+  + SmartOutlet(name : std::string, maxPower : double, load : double, voltage : double)
+  + ~SmartOutlet()
+  + getPowerUsage() : double
+  + getStatus() : std::string
+  + getCurrentVoltage() : double
+  + getCurrentAmperage() : double
+  + getLoad() : double
+  + setLoad(load : double) : void
+  + setVoltage(voltage : double) : void
+}
+
 SmartDevice <|-- PoweredDevice
 PoweredDevice <|-- LightBulb
 PoweredDevice <|-- Thermostat
+PoweredDevice <|-- SmartOutlet
+ISensor <|.. SmartOutlet
 Thermostat +-- Mode
 
 note right of SmartDevice
@@ -106,5 +130,13 @@ note bottom of Thermostat
   работает реализация по умолчанию.
 end note
 
-note "Следующие части: ISensor и SmartOutlet -\nмножественное наследование (v0.3),\nкопирование (v1.0)." as NextParts
+note bottom of SmartOutlet
+  Уровень 3: множественное наследование -
+  PoweredDevice (устройство с питанием)
+  и ISensor (датчик напряжения).
+  getPowerUsage переопределена: нагрузка.
+  Ромба нет: ISensor не наследует SmartDevice.
+end note
+
+note "Следующая часть: конструкторы копирования\nи присваивание с учётом состояния (v1.0)." as NextParts
 @enduml
