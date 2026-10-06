@@ -1,5 +1,5 @@
 @startuml
-title Диаграмма классов: устройства умного дома (вариант 5), версия v0.3
+title Диаграмма классов: устройства умного дома (вариант 5), версия v1.0
 skinparam classAttributeIconSize 0
 hide empty members
 
@@ -9,6 +9,8 @@ abstract class SmartDevice {
   - {static} existingCount_ : int
   --
   # SmartDevice(name : std::string)
+  # SmartDevice(other : SmartDevice)
+  # operator=(other : SmartDevice) : SmartDevice&
   + ~SmartDevice() {virtual}
   + {abstract} turnOn() : bool
   + {abstract} turnOff() : bool
@@ -27,6 +29,8 @@ abstract class PoweredDevice {
   - {static} clockHours_ : double
   --
   # PoweredDevice(name : std::string, powerConsumption : double)
+  # PoweredDevice(other : PoweredDevice)
+  # operator=(other : PoweredDevice) : PoweredDevice&
   + turnOn() : bool
   + turnOff() : bool
   + getPowerUsage() : double {virtual}
@@ -45,6 +49,8 @@ class LightBulb {
   + {static} MIN_BRIGHTNESS : int = 1
   + {static} MAX_BRIGHTNESS : int = 100
   + LightBulb(name : std::string, power : double, brightness : int, color : std::string)
+  + LightBulb(other : LightBulb)
+  + operator=(other : LightBulb) : LightBulb&
   + ~LightBulb()
   + getPowerUsage() : double
   + getStatus() : std::string
@@ -61,6 +67,8 @@ class Thermostat {
   + {static} MIN_TEMPERATURE : int = 5
   + {static} MAX_TEMPERATURE : int = 35
   + Thermostat(name : std::string, power : double, temperature : int, mode : Mode)
+  + Thermostat(other : Thermostat)
+  + operator=(other : Thermostat) : Thermostat&
   + ~Thermostat()
   + getStatus() : std::string
   + getTemperature() : int
@@ -77,6 +85,8 @@ enum "Thermostat::Mode" as Mode {
 }
 
 interface ISensor {
+  # ISensor(other : ISensor)
+  # operator=(other : ISensor) : ISensor&
   + ~ISensor() {virtual}
   + {abstract} getCurrentVoltage() : double
 }
@@ -88,6 +98,8 @@ class SmartOutlet {
   + {static} MIN_VOLTAGE : int = 180
   + {static} MAX_VOLTAGE : int = 260
   + SmartOutlet(name : std::string, maxPower : double, load : double, voltage : double)
+  + SmartOutlet(other : SmartOutlet)
+  + operator=(other : SmartOutlet) : SmartOutlet&
   + ~SmartOutlet()
   + getPowerUsage() : double
   + getStatus() : std::string
@@ -138,5 +150,5 @@ note bottom of SmartOutlet
   Ромба нет: ISensor не наследует SmartDevice.
 end note
 
-note "Следующая часть: конструкторы копирования\nи присваивание с учётом состояния (v1.0)." as NextParts
+note "Часть 4 (v1.0): конструкторы копирования и присваивание\nс учётом состояния. В абстрактных классах они защищены\n(#), в конкретных - открытые." as CopyNote
 @enduml
