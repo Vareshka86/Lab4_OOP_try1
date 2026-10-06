@@ -52,6 +52,22 @@ LightBulb::LightBulb(const std::string& name, double power, int brightness, cons
     checkColor(color_);
 }
 
+LightBulb::LightBulb(const LightBulb& other)
+    : PoweredDevice(other), brightness_(other.brightness_), color_(other.color_)
+{
+}
+
+LightBulb& LightBulb::operator=(const LightBulb& other)
+{
+    if (this != &other)
+    {
+        PoweredDevice::operator=(other); // сначала: засчитывает прошлое по старой яркости
+        brightness_ = other.brightness_;
+        color_ = other.color_;
+    }
+    return *this;
+}
+
 LightBulb::~LightBulb()
 {
     if (isOn())

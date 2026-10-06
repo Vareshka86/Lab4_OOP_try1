@@ -38,6 +38,22 @@ Thermostat::Thermostat(const std::string& name, double power, int temperature, M
     checkTemperature(temperature_);
 }
 
+Thermostat::Thermostat(const Thermostat& other)
+    : PoweredDevice(other), temperature_(other.temperature_), mode_(other.mode_)
+{
+}
+
+Thermostat& Thermostat::operator=(const Thermostat& other)
+{
+    if (this != &other)
+    {
+        PoweredDevice::operator=(other); // сначала: засчитывает прошлое по старым параметрам
+        temperature_ = other.temperature_;
+        mode_ = other.mode_;
+    }
+    return *this;
+}
+
 Thermostat::~Thermostat()
 {
     if (isOn())
