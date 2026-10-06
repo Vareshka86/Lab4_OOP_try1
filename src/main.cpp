@@ -10,7 +10,7 @@
  * Сами тесты — в отдельном файле tests.cpp, как требует задание.
  * @author Vareshka86
  * @date 2026-10-06
- * @version 0.3
+ * @version 1.0
  */
 
 #include "tests.h"
@@ -63,7 +63,7 @@ void waitForEnter()
 int main()
 {
     setupConsole();
-    std::cout << "Лабораторная работа №4 по ООП: устройства умного дома (вариант 5), v0.3\n";
+    std::cout << "Лабораторная работа №4 по ООП: устройства умного дома (вариант 5), v1.0\n";
 
     const bool allPassed = runAllTests();
 
