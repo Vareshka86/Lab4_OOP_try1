@@ -12,7 +12,7 @@
 # Общие сведения о проекте
 #---------------------------------------------------------------------------
 PROJECT_NAME           = "Лабораторная работа №4 по ООП"
-PROJECT_NUMBER         = v0.3
+PROJECT_NUMBER         = v1.0
 PROJECT_BRIEF          = "Иерархия устройств умного дома с наследованием"
 OUTPUT_DIRECTORY       = docs
 OUTPUT_LANGUAGE        = Russian

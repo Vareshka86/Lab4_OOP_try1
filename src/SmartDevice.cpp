@@ -23,6 +23,21 @@ SmartDevice::SmartDevice(const std::string& name)
     ++existingCount_; // только после проверки: при исключении объекта нет
 }
 
+SmartDevice::SmartDevice(const SmartDevice& other)
+    : name_(other.name_ + " (копия)"), isOn_(other.isOn_)
+{
+    ++existingCount_; // копия - ещё одно существующее устройство
+}
+
+SmartDevice& SmartDevice::operator=(const SmartDevice& other)
+{
+    if (this != &other) // проверка самоприсваивания
+    {
+        isOn_ = other.isOn_; // имя не меняем: оно принадлежит этому устройству
+    }
+    return *this;
+}
+
 SmartDevice::~SmartDevice()
 {
     --existingCount_;
