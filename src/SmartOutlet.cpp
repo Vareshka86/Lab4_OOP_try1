@@ -55,6 +55,26 @@ SmartOutlet::SmartOutlet(const std::string& name, double maxPower, double load, 
     checkVoltage(voltage_);
 }
 
+SmartOutlet::SmartOutlet(const SmartOutlet& other)
+    : PoweredDevice(other), // копия первой базовой части
+      ISensor(other),       // копия второй базовой части: у множественного наследования вызывается каждая
+      load_(other.load_),
+      voltage_(other.voltage_)
+{
+}
+
+SmartOutlet& SmartOutlet::operator=(const SmartOutlet& other)
+{
+    if (this != &other)
+    {
+        PoweredDevice::operator=(other); // сначала: засчитывает прошлое по старой нагрузке
+        ISensor::operator=(other);
+        load_ = other.load_;
+        voltage_ = other.voltage_;
+    }
+    return *this;
+}
+
 SmartOutlet::~SmartOutlet()
 {
     if (isOn())
