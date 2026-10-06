@@ -27,6 +27,26 @@ PoweredDevice::PoweredDevice(const std::string& name, double powerConsumption)
     }
 }
 
+PoweredDevice::PoweredDevice(const PoweredDevice& other)
+    : SmartDevice(other), // копируются имя (с пометкой) и состояние
+      powerConsumption_(other.powerConsumption_),
+      energyKWh_(0.0),                 // энергия оригинала копии не передаётся
+      meterStartHours_(clockHours_)    // если копия включена, учёт идёт с этого момента
+{
+}
+
+PoweredDevice& PoweredDevice::operator=(const PoweredDevice& other)
+{
+    if (this != &other) // проверка самоприсваивания
+    {
+        updateMeter(); // засчитать прошлое по старым параметрам - ДО их замены
+        SmartDevice::operator=(other);
+        powerConsumption_ = other.powerConsumption_;
+        meterStartHours_ = clockHours_; // новый интервал учёта начинается сейчас
+    }
+    return *this;
+}
+
 bool PoweredDevice::turnOn()
 {
     if (isOn())
