@@ -3,7 +3,7 @@
  * @brief Реализация тестов иерархии устройств умного дома.
  * @author Vareshka86
  * @date 2026-10-06
- * @version 0.3
+ * @version 1.0
  */
 
 #include "tests.h"
@@ -482,6 +482,144 @@ void testMultipleInheritance()
            SmartDevice::getExistingCount() == countBefore + 1);
 }
 
+void testCopyAndAssignment()
+{
+    printSection("Тест 8. Копирование и присваивание");
+    const int countBefore = SmartDevice::getExistingCount();
+    const double totalBefore = PoweredDevice::getTotalEnergyConsumed();
+
+    // --- Конструктор копирования: выключенная лампа
+    LightBulb original("Кухня", 60.0, 80, "тёплый белый");
+    std::cout << "LightBulb original(\"Кухня\", 60.0, 80, \"тёплый белый\");\n"
+              << "LightBulb copy(original);\n";
+    LightBulb copy(original);
+    std::cout << "  " << copy.getStatus() << '\n';
+    report("копия: те же мощность, яркость и цвет, состояние «выключена»",
+           near(copy.getPowerConsumption(), 60.0) && copy.getBrightness() == 80 &&
+               copy.getColor() == "тёплый белый" && !copy.isOn());
+    report("имя копии — «Кухня (копия)»: копия отличается от оригинала", copy.getName() == "Кухня (копия)");
+    report("копия учтена в счётчике устройств: стало на 2 больше",
+           SmartDevice::getExistingCount() == countBefore + 2);
+
+    std::cout << "copy.setBrightness(20);  copy.setColor(\"синий\");\n";
+    copy.setBrightness(20);
+    copy.setColor("синий");
+    report("независимость: оригинал не изменился (яркость 80 %, цвет «тёплый белый»)",
+           original.getBrightness() == 80 && original.getColor() == "тёплый белый");
+    original.turnOn();
+    report("независимость: включение оригинала не включило копию", original.isOn() && !copy.isOn());
+    original.turnOff();
+
+    // --- Конструктор копирования: включённый термостат
+    Thermostat heater("Спальня", 1500.0, 22, Thermostat::Mode::Heating);
+    heater.turnOn();
+    advance(2.0);
+    std::cout << "\nThermostat heater(\"Спальня\", 1500.0, 22, Thermostat::Mode::Heating);\n"
+              << "heater.turnOn();   // работает 2 часа\n"
+              << "Thermostat twin(heater);   // копия включённого термостата\n";
+    const double totalBeforeCopy = PoweredDevice::getTotalEnergyConsumed();
+    Thermostat twin(heater);
+    std::cout << "  " << twin.getStatus() << '\n';
+    report("копия включённого термостата тоже включена, температура и режим те же",
+           twin.isOn() && twin.getTemperature() == 22 && twin.getMode() == Thermostat::Mode::Heating);
+    report("энергия оригинала копии не передана: у копии 0 кВт·ч, общий счётчик при копировании не изменился",
+           near(twin.getEnergyConsumed(), 0.0) &&
+               near(PoweredDevice::getTotalEnergyConsumed(), totalBeforeCopy));
+    advance(1.0);
+    heater.turnOff();
+    twin.turnOff();
+    report("через час: оригинал 1500 Вт × 3 ч = 4.500 кВт·ч, копия — только свой час: 1.500 кВт·ч",
+           near(heater.getEnergyConsumed(), 4.5) && near(twin.getEnergyConsumed(), 1.5));
+    report("сумма по двум устройствам равна приросту общего счётчика (6.000 кВт·ч)",
+           near(PoweredDevice::getTotalEnergyConsumed() - totalBefore,
+                heater.getEnergyConsumed() + twin.getEnergyConsumed()));
+
+    // --- Присваивание: параметры и состояние берутся из другой лампы, имя и энергия остаются
+    LightBulb lamp("Стол", 100.0, 100, "белый");
+    LightBulb dim("Ночник", 40.0, 25, "жёлтый");
+    lamp.turnOn();
+    advance(2.0);
+    std::cout << "\nLightBulb lamp(\"Стол\", 100.0, 100, \"белый\");   lamp.turnOn();   // 2 часа на 100 Вт\n"
+              << "LightBulb dim(\"Ночник\", 40.0, 25, \"жёлтый\");   // выключен\n"
+              << "lamp = dim;\n";
+    lamp = dim;
+    std::cout << "  " << lamp.getStatus() << '\n';
+    report("после присваивания параметры как у «Ночника»: 40 Вт, 25 %, «жёлтый», лампа выключена",
+           near(lamp.getPowerConsumption(), 40.0) && lamp.getBrightness() == 25 &&
+               lamp.getColor() == "жёлтый" && !lamp.isOn());
+    report("имя осталось своим — «Стол», а не «Ночник»", lamp.getName() == "Стол");
+    report("энергия до присваивания засчитана по СТАРЫМ параметрам: 100 Вт × 2 ч = 0.200 кВт·ч",
+           near(lamp.getEnergyConsumed(), 0.2));
+
+    std::cout << "lamp.turnOn();  advance(1.0);  lamp.turnOff();\n";
+    lamp.turnOn();
+    advance(1.0);
+    lamp.turnOff();
+    report("дальше учёт идёт по новым параметрам: 40 Вт × 25 % × 1 ч = 0.010, всего 0.210 кВт·ч",
+           near(lamp.getEnergyConsumed(), 0.21));
+
+    // --- Присваивание включённого источника выключенному приёмнику
+    dim.turnOn();
+    std::cout << "\ndim.turnOn();   // источник включён\nlamp = dim;\n";
+    lamp = dim;
+    report("выключенная лампа после присваивания из включённой стала включённой", lamp.isOn());
+    advance(2.0);
+    lamp.turnOff();
+    dim.turnOff();
+    report("учёт у неё начался с момента присваивания: 0.210 + 10 Вт × 2 ч = 0.230 кВт·ч",
+           near(lamp.getEnergyConsumed(), 0.23));
+
+    // --- Самоприсваивание
+    std::cout << "\nlamp = lamp;   // самоприсваивание\n";
+    const double energyBefore = lamp.getEnergyConsumed();
+    LightBulb& same = lamp;
+    lamp = same; // через ссылку: компилятор не предупреждает о самоприсваивании
+    report("самоприсваивание ничего не меняет и не ломает счётчики",
+           lamp.getName() == "Стол" && lamp.getBrightness() == 25 && near(lamp.getEnergyConsumed(), energyBefore));
+
+    // --- Розетка: две базовые части
+    SmartOutlet outlet("Чайник", 3500.0, 2000.0, 230.0);
+    outlet.turnOn();
+    std::cout << "\nSmartOutlet outlet(\"Чайник\", 3500.0, 2000.0, 230.0);   outlet.turnOn();\n"
+              << "SmartOutlet socketCopy(outlet);\n";
+    SmartOutlet socketCopy(outlet);
+    std::cout << "  " << socketCopy.getStatus() << '\n';
+    ISensor& copySensor = socketCopy;
+    report("копия розетки: те же нагрузка 2000 Вт, напряжение 230 В (через ISensor&), состояние «включена»",
+           near(socketCopy.getLoad(), 2000.0) && near(copySensor.getCurrentVoltage(), 230.0) && socketCopy.isOn());
+    socketCopy.setLoad(500.0);
+    socketCopy.setVoltage(215.0);
+    report("независимость: оригинал по-прежнему 2000 Вт и 230 В",
+           near(outlet.getLoad(), 2000.0) && near(outlet.getCurrentVoltage(), 230.0));
+    SmartOutlet other("Тостер", 2000.0, 800.0, 220.0);
+    std::cout << "SmartOutlet other(\"Тостер\", 2000.0, 800.0, 220.0);   other = outlet;\n";
+    other = outlet;
+    report("присваивание розетки: мощность, нагрузка, напряжение и состояние как у «Чайника», имя «Тостер»",
+           near(other.getPowerConsumption(), 3500.0) && near(other.getLoad(), 2000.0) &&
+               near(other.getCurrentVoltage(), 230.0) && other.isOn() && other.getName() == "Тостер");
+    outlet.turnOff();
+    socketCopy.turnOff();
+    other.turnOff();
+
+    // --- Копии в массиве указателей: каждая — отдельный объект, удаляется самостоятельно
+    const int sizeBefore = SmartDevice::getExistingCount();
+    SmartDevice* devices[2] = {new LightBulb(original), new Thermostat(heater)};
+    std::cout << "\nSmartDevice* devices[2] = {new LightBulb(original), new Thermostat(heater)};\n";
+    report("в массиве копии лампы и термостата: имена «Кухня (копия)» и «Спальня (копия)»",
+           devices[0]->getName() == "Кухня (копия)" && devices[1]->getName() == "Спальня (копия)" &&
+               SmartDevice::getExistingCount() == sizeBefore + 2);
+    for (SmartDevice*& device : devices)
+    {
+        delete device;
+        device = nullptr;
+    }
+    report("после удаления копий счётчик устройств вернулся", SmartDevice::getExistingCount() == sizeBefore);
+
+    // Устройства этого теста (original, copy, heater, twin, lamp, dim, outlet, socketCopy, other) - 9 штук
+    report("в тесте создано 9 устройств, пока они живы (до выхода из функции)",
+           SmartDevice::getExistingCount() == countBefore + 9);
+}
+
 bool runAllTests()
 {
     testCreation();
@@ -491,6 +629,7 @@ bool runAllTests()
     testVirtualDestructor();
     testDeviceArray();
     testMultipleInheritance();
+    testCopyAndAssignment();
 
     printSection("Итог");
     std::cout << "Проверок пройдено: " << g_checksPassed << " из " << g_checksTotal << '\n'
